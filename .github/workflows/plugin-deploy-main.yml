@@ -1,0 +1,67 @@
+name: Deploy CCI Actions Demo
+on:
+  push:
+    branches:
+       master
+env:
+  REGION_ID: cn-north-4                  # set this to your preferred huaweicloud region, e.g. cn-north-4
+  PROJECT_ID: 057f09c8a4800f652fcec00406c35021   # 项目ID，可以在华为云我的凭证获取
+  ACCESS_KEY_ID: ${{ secrets.ACCESSKEY }}             # set this to your huaweicloud access-key-id
+  ACCESS_KEY_SECRET: ${{ secrets.SECRETACCESSKEY }}   # set this to your huaweicloud access-key-secret
+  SWR_ORGANIZATION:  iot-plugin   # SWR 组织名
+  IMAGE_NAME: plugin-tcp-demo       # 镜像名称
+            
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.build-image.outputs.image }}
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Build with Maven
+        id: build-project
+        run: mvn package -Dmaven.test.skip=true -U -e -X -B
+        
+      - name: Log in to Huawei Cloud SWR
+        uses: huaweicloud/swr-login@v2.1.0
+        with:
+          region: ${{ env.REGION_ID }}
+          access-key-id: ${{ secrets.ACCESSKEY }}
+          access-key-secret: ${{ secrets.SECRETACCESSKEY }}
+
+      - name: Build, Tag, and Push Image to Huawei Cloud SWR
+        id: build-image
+        env:
+          SWR_REGISTRY: swr.${{ env.REGION_ID }}.myhuaweicloud.com
+          SWR_ORGANIZATION: ${{ env.SWR_ORGANIZATION }}
+          IMAGE_TAG: ${{ github.sha }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+        run: |
+          docker build -t $SWR_REGISTRY/$SWR_ORGANIZATION/$IMAGE_NAME:$IMAGE_TAG .
+          docker push $SWR_REGISTRY/$SWR_ORGANIZATION/$IMAGE_NAME:$IMAGE_TAG
+          echo "::set-output name=image::$SWR_REGISTRY/$SWR_ORGANIZATION/$IMAGE_NAME:$IMAGE_TAG"
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Authenticate to Huawei Cloud
+        uses: huaweicloud/auth-action@v1.1.0
+        with: 
+            access_key_id: ${{ secrets.ACCESSKEY }} 
+            secret_access_key: ${{ secrets.SECRETACCESSKEY }}
+            region: ${{ env.REGION_ID }}
+            project_id: ${{env.PROJECT_ID}}
+
+      - name: Kubectl Tool Installer
+        id: install-kubectl
+        uses: Azure/setup-kubectl@v2.1
+
+      # 通过镜像新建或者更新负载
+      - name: Deploy to CCI
+        uses: huaweicloud/deploy-cci-action@v1.2.0
+        id: deploy-to-cci
+        with:
+          namespace: action-namespace-name
+          deployment: action-deployment-name
+          image: ${{ needs.build.outputs.image }}
