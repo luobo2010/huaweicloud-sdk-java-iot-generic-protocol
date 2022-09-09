@@ -10,6 +10,8 @@ env:
   ACCESS_KEY_SECRET: ${{ secrets.SECRETACCESSKEY }}   # set this to your huaweicloud access-key-secret
   SWR_ORGANIZATION:  iot-plugin   # SWR 组织名
   IMAGE_NAME: plugin-tcp-demo       # 镜像名称
+  CCI_NAME_SPACE:  iot-plugin   # CCI命名空间名称
+  CCI_DEPLOYMENT: plugin-tcp-demo       # CCI负载名称
             
 jobs:
   build:
@@ -66,6 +68,6 @@ jobs:
         uses: huaweicloud/deploy-cci-action@v1.2.0
         id: deploy-to-cci
         with:
-          namespace: action-namespace-name
-          deployment: action-deployment-name
+          namespace: ${{ env.CCI_NAME_SPACE }}
+          deployment: ${{ env.CCI_DEPLOYMENT }}
           image: ${{ needs.build.outputs.image }}
