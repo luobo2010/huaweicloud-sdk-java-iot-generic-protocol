@@ -41,7 +41,7 @@ jobs:
         env:
           SWR_REGISTRY: swr.${{ env.REGION_ID }}.myhuaweicloud.com
           SWR_ORGANIZATION: ${{ env.SWR_ORGANIZATION }}
-          IMAGE_TAG: ${{ github.sha }}
+          IMAGE_TAG: 1.0.1
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
         run: |
           docker build -t $SWR_REGISTRY/$SWR_ORGANIZATION/$IMAGE_NAME:$IMAGE_TAG ./iot-bridge-sample-tcp-protocol
