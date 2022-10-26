@@ -1,0 +1,49 @@
+name: SWR Actions Demo
+on:
+  push:
+    branches:
+       master
+env:
+  REGION_ID: cn-north-4                  # set this to your preferred huaweicloud region, e.g. cn-north-4
+  PROJECT_ID: 057f09c8a4800f652fcec00406c35021   # 项目ID，可以在华为云我的凭证获取
+  ACCESS_KEY_ID: ${{ secrets.ACCESSKEY }}             # set this to your huaweicloud access-key-id
+  ACCESS_KEY_SECRET: ${{ secrets.SECRETACCESSKEY }}   # set this to your huaweicloud access-key-secret
+  SWR_ORGANIZATION:  iot-plugin   # SWR 组织名
+  IMAGE_NAME: plugin-tcp-demo       # 镜像名称
+  CCI_NAME_SPACE:  iot-plugin   # CCI命名空间名称
+  CCI_DEPLOYMENT: plugin-tcp-demo       # CCI负载名称
+            
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.build-image.outputs.image }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up JDK 8
+        uses: actions/setup-java@v3
+        with:
+          java-version: '8'
+          distribution: 'temurin'
+          cache: maven
+      - name: Build with Maven
+        run: mvn -B package --file pom.xml
+        
+      - name: Log in to Huawei Cloud SWR
+        uses: huaweicloud/swr-login@v2.1.0
+        with:
+          region: ${{ env.REGION_ID }}
+          access-key-id: ${{ secrets.ACCESSKEY }}
+          access-key-secret: ${{ secrets.SECRETACCESSKEY }}
+
+      - name: Build, Tag, and Push Image to Huawei Cloud SWR
+        id: build-image
+        env:
+          SWR_REGISTRY: swr.${{ env.REGION_ID }}.myhuaweicloud.com
+          SWR_ORGANIZATION: ${{ env.SWR_ORGANIZATION }}
+          IMAGE_TAG: ${{ github.sha }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+        run: |
+          docker build -t $SWR_REGISTRY/$SWR_ORGANIZATION/$IMAGE_NAME:$IMAGE_TAG ./iot-bridge-sample-tcp-protocol
+          docker push $SWR_REGISTRY/$SWR_ORGANIZATION/$IMAGE_NAME:$IMAGE_TAG
+          echo "::set-output name=image::$SWR_REGISTRY/$SWR_ORGANIZATION/$IMAGE_NAME:$IMAGE_TAG"
